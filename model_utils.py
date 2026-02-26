@@ -38,6 +38,8 @@ def classify_image(img: Image.Image) -> str:
         )
 
         result = response.choices[0].message.content.strip().lower()
+        print("OpenAI raw response:", response)
+print("Extracted result:", result)
         if "jacke" in result or "coat" in result:
             return "Jacke"
         elif "pullover" in result or "sweater" in result:
