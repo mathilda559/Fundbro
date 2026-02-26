@@ -1,25 +1,36 @@
-import tensorflow as tf
-import numpy as np
-from tensorflow.keras.applications.mobilenet_v2 import preprocess_input, decode_predictions
-from tensorflow.keras.preprocessing import image
+import base64
+import os
+from openai import OpenAI
 
-model = tf.keras.applications.MobileNetV2(weights="imagenet")
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 def classify_image(img):
-    img = img.resize((224, 224))
-    img_array = image.img_to_array(img)
-    img_array = np.expand_dims(img_array, axis=0)
-    img_array = preprocess_input(img_array)
 
-    predictions = model.predict(img_array)
-    decoded = decode_predictions(predictions, top=3)[0]
+    # Bild in Base64 umwandeln
+    import io
+    buffered = io.BytesIO()
+    img.save(buffered, format="JPEG")
+    img_bytes = buffered.getvalue()
+    base64_image = base64.b64encode(img_bytes).decode("utf-8")
 
-    # Prüfen ob Jacke oder Pullover erkannt wurde
-    for pred in decoded:
-        label = pred[1].lower()
-        if "jacket" in label or "coat" in label:
-            return "Jacke"
-        if "sweatshirt" in label or "pullover" in label:
-            return "Pullover"
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "Ist auf diesem Bild eine Jacke oder ein Pullover? Antworte nur mit: Jacke, Pullover oder Unbekannt."},
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:image/jpeg;base64,{base64_image}"
+                        }
+                    }
+                ],
+            }
+        ],
+        max_tokens=10
+    )
 
-    return "Unbekannt"
+    result = response.choices[0].message.content.strip()
+    return result
